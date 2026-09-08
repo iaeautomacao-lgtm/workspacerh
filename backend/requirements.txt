@@ -1,0 +1,9 @@
+fastapi>=0.100.0
+uvicorn>=0.22.0
+sqlalchemy>=2.0.0
+pydantic>=2.0.0
+PyMuPDF>=1.22.0
+python-docx>=0.8.11
+python-multipart>=0.0.6
+jinja2>=3.1.2
+pytest>=7.0.0

@@ -1,0 +1,78 @@
+# ==============================================================================
+# SEGURANÇA E GOVERNANÇA: .gitignore (Proteção de Chaves de API e Dados LGPD)
+# ==============================================================================
+
+# 1. Chaves de API e Segredos de Ambiente (CRÍTICO)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# 2. Dados Sensíveis de Candidatos e Currículos (LGPD Compliance)
+uploads/
+test_cvs/
+*.pdf
+*.docx
+*.doc
+*.rtf
+*.odt
+
+# 3. Bancos de Dados Locais e Arquivos de Persistência
+*.db
+*.sqlite
+*.sqlite3
+rh_database.db
+
+# 4. Caches e Bytecode do Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 5. Ambientes Virtuais
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# 6. Testes e Cobertura de Código
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# 7. Arquivos Temporários de Logs
+*.log
+logs/
+
+# 8. Arquivos e Caches do Sistema Operacional e IDEs
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
