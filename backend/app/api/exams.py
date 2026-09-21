@@ -2,7 +2,7 @@ from app.core.time import utcnow
 import re
 import secrets
 from datetime import timedelta
-from typing import Literal, Any
+from typing import Literal, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -30,7 +30,7 @@ class QuestionInput(BaseModel):
     rubric: list[Criterion] = Field(default_factory=list, max_length=12)
 class ExamInput(BaseModel):
     title: str = Field(min_length=2, max_length=190)
-    job_id: int | None = None
+    job_id: Optional[int] = None
     instructions: str = Field(default='', max_length=8000)
     duration_minutes: int = Field(default=60, ge=5, le=600)
     level: Literal['operacional', 'junior', 'pleno', 'senior'] = 'junior'
@@ -142,14 +142,14 @@ def library(db: Session = Depends(get_db)):
 
 class BuildInput(BaseModel):
     title: str = Field(min_length=2, max_length=190)
-    job_id: int | None = None
+    job_id: Optional[int] = None
     level: Literal['operacional', 'junior', 'pleno', 'senior'] = 'junior'
     mode: Literal['online', 'presencial'] = 'online'
     area: str = Field(default='', max_length=120)
-    duration_minutes: int | None = Field(default=None, ge=5, le=600)
+    duration_minutes: Optional[int] = Field(default=None, ge=5, le=600)
     instructions: str = Field(default='', max_length=8000)
     access_code: str = Field(default='', max_length=40)
-    template: str | None = None
+    template: Optional[str] = None
     mix: list[dict] = Field(default_factory=list, max_length=20)
 
 @private.post('/exams/build')

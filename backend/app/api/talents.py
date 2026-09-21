@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 import secrets
 import re
 from pathlib import Path
@@ -19,7 +20,7 @@ def jobs(db:Session=Depends(get_db)):
     return [{'id':j.id,'title':j.title,'description':j.description,'openings':p.openings,'location':p.location} for j,p in rows]
 
 @public.post('/apply')
-async def apply(name:str=Form(...,max_length=190),email:str=Form(...,max_length=190),phone:str=Form(...,max_length=30),employee_id:str=Form(...,max_length=100),department:str=Form(...,max_length=190),current_role:str=Form(...,max_length=190),interests:str=Form('',max_length=2000),consent:bool=Form(...),job_id:int|None=Form(None),update_token:str=Form('',max_length=100),file:UploadFile=File(...),db:Session=Depends(get_db)):
+async def apply(name:str=Form(...,max_length=190),email:str=Form(...,max_length=190),phone:str=Form(...,max_length=30),employee_id:str=Form(...,max_length=100),department:str=Form(...,max_length=190),current_role:str=Form(...,max_length=190),interests:str=Form('',max_length=2000),consent:bool=Form(...),job_id:Optional[int]=Form(None),update_token:str=Form('',max_length=100),file:UploadFile=File(...),db:Session=Depends(get_db)):
     if not consent: raise HTTPException(422,'É necessário autorizar o uso dos dados para recrutamento interno.')
     if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email) or len(re.sub(r'\D','',phone)) not in (10,11,12,13): raise HTTPException(422,'Informe e-mail e telefone válidos.')
     if not all(v.strip() for v in [name,employee_id,department,current_role]): raise HTTPException(422,'Preencha os dados do colaborador.')

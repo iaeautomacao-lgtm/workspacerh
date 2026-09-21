@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -18,18 +18,18 @@ class RequirementInput(BaseModel):
 class JobInput(BaseModel):
     title: str=Field(min_length=2,max_length=190)
     description: str=Field(min_length=10,max_length=40000)
-    openings: int | None=Field(default=None,ge=1,le=10000)
+    openings: Optional[int]=Field(default=None,ge=1,le=10000)
     internal: bool=False
     published: bool=False
     location: str=Field(default='A combinar',max_length=190)
     requirements: list[RequirementInput]=Field(default_factory=list,max_length=100)
     questions: list[str]=Field(default_factory=list,max_length=30)
     message_template: str=Field(default='Olá, {nome}! Aqui é o RH do Grupo DDM. Você tem interesse em conversar sobre a vaga {vaga}? Responda SIM para iniciar ou SAIR para encerrar.',max_length=4000)
-    source_url: str | None=Field(default=None,max_length=2000)
+    source_url: Optional[str]=Field(default=None,max_length=2000)
 class SourceInput(BaseModel):
     source_type: Literal['url','text']='url'
-    job_url: str | None=Field(default=None,max_length=2000)
-    description_text: str | None=Field(default=None,max_length=40000)
+    job_url: Optional[str]=Field(default=None,max_length=2000)
+    description_text: Optional[str]=Field(default=None,max_length=40000)
 
 def serialize(job, db):
     policy=db.get(JobPolicy,job.id)

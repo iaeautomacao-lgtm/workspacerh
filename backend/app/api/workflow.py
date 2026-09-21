@@ -2,7 +2,7 @@ from app.core.time import utcnow
 import os
 import hmac
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -20,7 +20,7 @@ webhooks=APIRouter(prefix='/webhooks',tags=['Provider webhooks'])
 
 class Contact(BaseModel):
     name:str=Field(min_length=2,max_length=190)
-    email:str|None=Field(default=None,max_length=190)
+    email:Optional[str]=Field(default=None,max_length=190)
     phone:str=Field(max_length=30)
 @router.put('/candidates/{candidate_id}')
 def contact(candidate_id:int,body:Contact,db:Session=Depends(get_db)):
