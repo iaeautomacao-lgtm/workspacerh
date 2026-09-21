@@ -1,42 +1,40 @@
 import os
 import sys
-
-# Garante que a pasta 'backend' esteja no PYTHONPATH para resolver o pacote 'app'
-backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if backend_dir not in sys.path:
-    sys.path.insert(0, backend_dir)
-
-from fastapi import FastAPI
+from pathlib import Path
+from contextlib import asynccontextmanager
+backend_dir=Path(__file__).resolve().parents[1]
+if str(backend_dir) not in sys.path: sys.path.insert(0,str(backend_dir))
+from fastapi import FastAPI, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.core.database import engine, Base
-from app.api import jobs, resumes, screenings, messages, settings
-
-# Cria as tabelas do banco de dados na inicialização
-Base.metadata.create_all(bind=engine)
-
-app = FastAPI(
-    title="Plataforma Universal de Recrutamento com IA - Grupo DDM",
-    version="1.0.0"
-)
-
-# Inclui os roteadores da API REST com o prefixo /api/v1
-app.include_router(jobs.router, prefix="/api/v1")
-app.include_router(resumes.router, prefix="/api/v1")
-app.include_router(screenings.router, prefix="/api/v1")
-app.include_router(messages.router, prefix="/api/v1")
-app.include_router(settings.router, prefix="/api/v1")
-
-
-
-# Caminho para o frontend index.html
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-
-@app.get("/", response_class=FileResponse)
-def serve_index():
-    index_path = os.path.join(ROOT_DIR, "index.html")
-    return FileResponse(index_path)
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)
+from app.models import domain,workflow as workflow_models,exam as exam_models
+from app.core.auth import router as auth_router, require_rh
+from app.api import jobs,resumes,screenings,settings,talents,workflow,exams,accounts
+ROOT=backend_dir.parent
+@asynccontextmanager
+async def lifespan(app):
+    Base.metadata.create_all(bind=engine)
+    yield
+app=FastAPI(title='DDM Pessoas • Recrutamento e seleção',version='2.0.0',lifespan=lifespan,docs_url=None,redoc_url=None,openapi_url=None)
+app.include_router(auth_router,prefix='/api/v1')
+for router in (jobs.router,resumes.router,screenings.router,settings.router):
+    app.include_router(router,prefix='/api/v1',dependencies=[Depends(require_rh)])
+for router in (talents.public,talents.private,workflow.router,workflow.webhooks,exams.private,exams.public,accounts.router): app.include_router(router,prefix='/api/v1')
+app.mount('/static',StaticFiles(directory=ROOT/'static'),name='static')
+@app.middleware('http')
+async def headers(request,call_next):
+    response=await call_next(request)
+    response.headers['X-Content-Type-Options']='nosniff'
+    response.headers['Referrer-Policy']='same-origin'
+    response.headers['X-Frame-Options']='DENY'
+    response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    response.headers['Cache-Control']='no-store'
+    return response
+@app.get('/')
+@app.get('/interno')
+@app.get('/login')
+@app.get('/prova')
+def frontend(): return FileResponse(ROOT/'index.html')
+@app.get('/health')
+def health(): return {'status':'ok'}

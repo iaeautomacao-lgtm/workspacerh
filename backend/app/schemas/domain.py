@@ -37,6 +37,8 @@ class JobResponse(BaseModel):
 
 class ScreeningResultResponse(BaseModel):
     id: int
+    candidate_id: Optional[int] = None
+    job_id: Optional[int] = None
     candidate_name: str
     name: str
     score: float

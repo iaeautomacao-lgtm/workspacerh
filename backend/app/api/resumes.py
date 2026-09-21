@@ -1,70 +1,46 @@
-import os
+import re
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
 from app.core.database import get_db
-from app.core.config import settings
-from app.models.domain import Job, Candidate, Resume, Company
-from app.services.resume_parser import extract_text_from_file
-
-router = APIRouter(prefix="/jobs/{job_id}/resumes", tags=["Resumes"])
-
-@router.post("/upload")
-async def upload_resumes(job_id: int, files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
-    job = db.query(Job).filter(Job.id == job_id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Vaga não encontrada")
-
-    processed_resumes = []
-    
+from app.models.domain import Job,Candidate,Resume
+from app.core.auth import require_rh
+from app.models.domain import AuditLog
+from app.models.workflow import Conversation
+from app.models.exam import ExamAttempt
+from app.services.uploads import store_resume, drop_file
+router=APIRouter(prefix='/jobs/{job_id}/resumes',tags=['Resumes'])
+@router.post('/upload')
+async def upload(job_id:int,files:list[UploadFile]=File(...),db:Session=Depends(get_db)):
+    job=db.get(Job,job_id)
+    if not job: raise HTTPException(404,'Vaga não encontrada')
+    if len(files)>30: raise HTTPException(422,'Envie até 30 currículos por vez.')
+    results=[]
     for file in files:
-        # Salva o arquivo fisicamente
-        file_path = os.path.join(settings.UPLOAD_DIR, file.filename)
-        with open(file_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
+        name,path,text=await store_resume(file)
+        email=re.search(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}',text)
+        phone=re.search(r'(?:\+?55\s*)?\(?\d{2}\)?[ .-]*9?\d{4}[ .-]*\d{4}',text)
+        candidate=Candidate(company_id=job.company_id,name=name.rsplit('.',1)[0].replace('_',' '),email=email[0] if email else None,phone=phone[0] if phone else None)
+        db.add(candidate);db.flush()
+        resume=Resume(candidate_id=candidate.id,job_id=job.id,file_name=name,file_path=path,extracted_text=text);db.add(resume);db.flush()
+        results.append({'id':resume.id,'name':candidate.name})
+    db.commit();return {'resumes':results}
 
-        # Realiza a extração textual real (PyMuPDF / python-docx)
-        extracted_text = extract_text_from_file(file_path)
-        
-        # Tenta derivar o nome do candidato a partir do nome do arquivo
-        base_name = os.path.splitext(file.filename)[0].replace("_", " ").replace("-", " ").title()
-        
-        # Registra o candidato e o currículo
-        candidate = Candidate(company_id=job.company_id, name=base_name)
-        db.add(candidate)
-        db.commit()
-        db.refresh(candidate)
-
-        resume = Resume(
-            candidate_id=candidate.id,
-            job_id=job.id,
-            file_name=file.filename,
-            file_path=file_path,
-            extracted_text=extracted_text
-        )
-        db.add(resume)
-        db.commit()
-        db.refresh(resume)
-        
-        processed_resumes.append({"id": resume.id, "file_name": file.filename, "candidate_name": base_name})
-
-    return {"message": f"{len(processed_resumes)} currículo(s) processado(s) com sucesso", "resumes": processed_resumes}
-
-@router.delete("/resumes/{resume_id}")
-def delete_resume(resume_id: int, db: Session = Depends(get_db)):
-    resume = db.query(Resume).filter(Resume.id == resume_id).first()
-    if not resume:
-        raise HTTPException(status_code=404, detail="Currículo não encontrado")
-
-    # Remove o arquivo físico se existir
-    if resume.file_path and os.path.exists(resume.file_path):
-        try:
-            os.remove(resume.file_path)
-        except Exception:
-            pass
-
-    db.delete(resume)
+@router.delete('/{resume_id}')
+def remove(job_id:int,resume_id:int,db:Session=Depends(get_db),account=Depends(require_rh)):
+    """Exclui o currículo, o arquivo em disco e o candidato que ficar sem nenhum vínculo."""
+    resume=db.get(Resume,resume_id)
+    if not resume or resume.job_id!=job_id: raise HTTPException(404,'Currículo não encontrado')
+    job=db.get(Job,job_id)
+    candidate=resume.candidate
+    name=candidate.name if candidate else resume.file_name
+    drop_file(resume.file_path)
+    db.delete(resume);db.flush()
+    orphan=False
+    if candidate:
+        vinculos=(db.query(Resume).filter_by(candidate_id=candidate.id).count()
+                  +db.query(Conversation).filter_by(candidate_id=candidate.id).count()
+                  +db.query(ExamAttempt).filter_by(candidate_id=candidate.id).count())
+        if not vinculos: db.delete(candidate);orphan=True
+    db.add(AuditLog(company_id=job.company_id,user_id=account.id,action='resume_deleted',details=f'job={job_id} resume={resume_id} candidato={name[:120]}'))
     db.commit()
-    return {"message": f"Currículo #{resume_id} excluído com sucesso"}
-
+    return {'deleted':True,'candidate_removed':orphan}

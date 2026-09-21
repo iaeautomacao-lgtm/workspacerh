@@ -76,3 +76,13 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+.test-artifacts/
+backups/
+
+# pacotes antigos e de deploy
+backend.zip
+*-deploy.zip
+
+# pacotes antigos e de deploy
+backend.zip
+*-deploy.zip
