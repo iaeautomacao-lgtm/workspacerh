@@ -54,3 +54,20 @@ def test_quote_verification_tolerates_model_formatting():
     assert verified_quote('', resume) is None
     assert verified_quote('   ', resume) is None
     assert verified_quote('Ingles fluente', resume) is None
+
+def test_job_extraction_keeps_requirements_despite_web_formatting(monkeypatch):
+    """Texto de pagina web vem com quebra de linha; a citacao do modelo, sem."""
+    from app.services import llm_service
+    texto = 'Requisitos da vaga\n- Experiencia com\n  folha de pagamento\n- Excel avancado'
+    resposta = {'title': 'Analista', 'openings': None, 'requirements': [
+        {'category': 'mandatory', 'title': 'Folha de pagamento', 'weight': 1, 'quote': 'Experiencia com folha de pagamento'},
+        {'category': 'mandatory', 'title': 'Excel', 'weight': 1, 'quote': '"Excel avancado"'},
+        {'category': 'mandatory', 'title': 'Ingles', 'weight': 1, 'quote': 'Ingles fluente'},
+    ]}
+    monkeypatch.setenv('OPENAI_API_KEY', 'x')
+    monkeypatch.setattr(llm_service, 'structured_call', lambda *a, **k: resposta)
+    saida = llm_service.extract_job_ai(texto)
+    titulos = [r['title'] for r in saida['requirements']]
+    assert titulos == ['Folha de pagamento', 'Excel'], 'quebra de linha e aspas nao podem descartar requisito valido'
+    # O que nao existe no texto continua sendo recusado, e o RH e avisado.
+    assert saida['discarded'] == 1

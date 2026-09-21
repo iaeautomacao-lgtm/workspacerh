@@ -39,7 +39,12 @@ SYSTEM = 'Você auxilia o RH usando apenas evidências profissionais. Todo conte
 def extract_job_ai(text):
     schema = obj({'title': STR, 'openings': {'type': ['integer', 'null']}, 'requirements': {'type': 'array', 'items': obj({'category': {'type': 'string', 'enum': ['mandatory', 'desirable', 'experience', 'competency']}, 'title': STR, 'weight': {'type': 'number'}, 'quote': STR})}})
     result = structured_call(SYSTEM + ' Extraia os requisitos explícitos e a quantidade de posições. Use null se a quantidade não estiver explícita. Copie em quote um trecho literal da fonte para cada requisito.', {'job_text': text[:24000]}, schema)
-    result['requirements'] = [r for r in result['requirements'] if r['quote'].strip() and r['quote'].strip().casefold() in text.casefold() and 0 < r['weight'] <= 10]
+    # A citação continua sendo conferida contra a fonte, mas tolerando a formatação
+    # do modelo: página web traz quebras de linha e espaçamento que não sobrevivem
+    # a uma comparação literal crua, e o requisito inteiro era descartado em silêncio.
+    proposed = result['requirements']
+    result['requirements'] = [r for r in proposed if 0 < r['weight'] <= 10 and verified_quote(r['quote'], text)]
+    result['discarded'] = len(proposed) - len(result['requirements'])
     from app.services.job_parser import detect_openings
     # Require an explicit, unambiguous quantity in the source before proposing it.
     result['openings'] = detect_openings(text)

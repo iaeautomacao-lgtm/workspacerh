@@ -43,7 +43,7 @@ def extract(body:SourceInput):
         if os.getenv('OPENAI_API_KEY'):
             extracted=extract_job_ai(text); source='openai'
         else:
-            extracted={'title':'','openings':detect_openings(text),'requirements':structure_job_requirements(text)}; source='local'
+            extracted={'title':'','openings':detect_openings(text),'requirements':structure_job_requirements(text),'discarded':0}; source='local'
         return {**extracted,'description':text,'source':source,'source_url':body.job_url,'review_required':True}
     except (ValueError, OSError) as exc:
         raise HTTPException(422, str(exc) if isinstance(exc,ValueError) else 'Não foi possível ler a página. Cole a descrição da vaga.')
